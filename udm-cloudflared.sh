@@ -4,7 +4,8 @@
 # All files stay in /data, which UniFi OS keeps during a firmware update.
 #
 # Usage: udm-cloudflared.sh <command>
-# Commands: install, update, check, auto-update, restore, status, uninstall [--purge]
+# Commands: install, update, check, auto-update, self-update, restore, status,
+# version, uninstall [--purge]
 
 set -euo pipefail
 
@@ -18,6 +19,10 @@ SCRIPT="${DIR}/udm-cloudflared.sh"
 UPDATE_UNITS="cloudflared-update.service cloudflared-update.timer"
 LATEST="https://github.com/cloudflare/cloudflared/releases/latest"
 RELEASES="${LATEST}/download"
+SCRIPT_VERSION="0.1.0"
+SCRIPT_REPO="benkelly/udm-cloudflared"
+SCRIPT_LATEST="https://github.com/${SCRIPT_REPO}/releases/latest"
+SCRIPT_RAW="https://raw.githubusercontent.com/${SCRIPT_REPO}"
 
 die() { echo "Error: $*" >&2; exit 1; }
 info() { echo "==> $*"; }
@@ -55,6 +60,21 @@ latest_version() {
     */tag/*) echo "${url##*/}" ;;
     *) return 1 ;;
   esac
+}
+
+# Prints the tag of the newest release of this script, for example v0.2.0.
+latest_script_tag() {
+  local url
+  url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${SCRIPT_LATEST}")" || return 1
+  case "${url}" in
+    */tag/v[0-9]*) echo "${url##*/}" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Returns 0 only if version $1 is newer than version $2.
+version_newer() {
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
 }
 
 auto_update_enabled() {
@@ -182,6 +202,47 @@ cmd_check() {
   else
     info "A newer version exists. Run: $0 update"
   fi
+  check_script
+}
+
+check_script() {
+  local tag
+  echo "Script installed: ${SCRIPT_VERSION}"
+  if ! tag="$(latest_script_tag)"; then
+    echo "Script latest:    not found"
+    return 0
+  fi
+  echo "Script latest:    ${tag#v}"
+  if version_newer "${tag#v}" "${SCRIPT_VERSION}"; then
+    info "A newer script exists. Run: $0 self-update"
+  else
+    info "The script is up to date."
+  fi
+}
+
+# This command replaces the script with the newest release. Only you run it.
+cmd_self_update() {
+  local tag tmp
+  need_root
+  [ -d "${DIR}" ] || die "${DIR} does not exist. Run: $0 install"
+  tag="$(latest_script_tag)" || die "The script cannot find a release. Make sure that the gateway can connect to github.com."
+  if ! version_newer "${tag#v}" "${SCRIPT_VERSION}"; then
+    info "The script ${SCRIPT_VERSION} is up to date."
+    return 0
+  fi
+  tmp="$(mktemp "${DIR}/udm-cloudflared.XXXXXX")"
+  info "Downloading the script ${tag}"
+  if ! curl -fsSL "${SCRIPT_RAW}/${tag}/udm-cloudflared.sh" -o "${tmp}"; then
+    rm -f "${tmp:?}"
+    die "The download of the script failed."
+  fi
+  if ! bash -n "${tmp}" 2>/dev/null || ! grep -q "^SCRIPT_VERSION=\"${tag#v}\"$" "${tmp}"; then
+    rm -f "${tmp:?}"
+    die "The new script is not valid. The old script stays in place."
+  fi
+  chmod 755 "${tmp}"
+  mv -f "${tmp}" "${SCRIPT}"
+  info "The script is now version ${tag#v}. Run: ${SCRIPT} install"
 }
 
 # The weekly timer runs this command. It downloads only a newer release.
@@ -250,8 +311,10 @@ case "${1:-install}" in
   update) cmd_update ;;
   check) cmd_check ;;
   auto-update) cmd_auto_update ;;
+  self-update) cmd_self_update ;;
+  version) echo "${SCRIPT_VERSION}" ;;
   restore) cmd_restore ;;
   status) cmd_status ;;
   uninstall) cmd_uninstall "${2:-}" ;;
-  *) die "Unknown command: ${1}. Use install, update, check, auto-update, restore, status, or uninstall [--purge]." ;;
+  *) die "Unknown command: ${1}. Use install, update, check, auto-update, self-update, restore, status, version, or uninstall [--purge]." ;;
 esac
