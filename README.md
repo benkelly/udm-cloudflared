@@ -19,8 +19,9 @@ UniFi OS keeps the `/data` directory during a restart and during a firmware upda
 The script then creates a systemd service that starts `cloudflared` when the gateway starts.
 The script uses no containers.
 
-A firmware update can remove the service file from `/etc/systemd/system`.
-The `restore` command puts the file back and downloads nothing.
+The script puts the service files in `/etc/systemd/system`.
+On the test gateway, firmware updates kept the files in that directory.
+If an update removes them, the `restore` command puts them back and downloads nothing.
 
 ## Requirements
 
@@ -132,6 +133,18 @@ The tag must match the version, or `self-update` rejects the download.
 
 ## After a firmware update
 
+In most cases, you do nothing after a firmware update.
+The connector starts again when the gateway starts.
+
+UniFi OS has a read-only firmware image and a separate partition for changes.
+A firmware update replaces the image and keeps the partition.
+The service files in `/etc/systemd/system` are on that partition.
+
+On the test gateway, a UDM SE, the unit files of a different tool stayed in that directory from 2023 to 2026.
+In that time, firmware updates took the gateway to UniFi OS 6.0.17.
+
+Ubiquiti does not document this behavior.
+A future firmware update or a different model can remove the files.
 If the connector is not in the Cloudflare dashboard after a firmware update, run this command on the gateway:
 
 ```sh
@@ -140,18 +153,6 @@ If the connector is not in the Cloudflare dashboard after a firmware update, run
 
 The command copies the service file back and starts the service.
 If the weekly update is on, the command also puts the timer back.
-
-You can also run the restore each time the gateway starts.
-For this, you need [unifi-on-boot](https://github.com/unredacted/unifi-on-boot), a package that runs your scripts at each start.
-If the package is on the gateway, create this file there:
-
-```sh
-cat > /data/on_boot.d/10-cloudflared.sh <<'EOF'
-#!/bin/bash
-/data/cloudflared/udm-cloudflared.sh restore
-EOF
-chmod +x /data/on_boot.d/10-cloudflared.sh
-```
 
 ## Limits
 
