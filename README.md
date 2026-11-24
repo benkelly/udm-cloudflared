@@ -69,10 +69,36 @@ For example, `./udm-cloudflared.sh status` shows the state of the service.
 | --- | --- |
 | `install` | Downloads `cloudflared`, creates the service, and starts it. |
 | `update` | Downloads the latest `cloudflared` and restarts the service. |
+| `check` | Shows the installed version and the latest version of `cloudflared`. |
+| `auto-update` | Does an update only if a newer release exists. The weekly timer runs this command. |
 | `restore` | Puts the service file back after a firmware update. |
 | `status` | Shows the `cloudflared` version and the state of the service. |
 | `uninstall` | Removes the service and keeps the files in `/data/cloudflared`. |
 | `uninstall --purge` | Removes the service and deletes `/data/cloudflared`. |
+
+## Automatic updates
+
+The script can update `cloudflared` for you each week.
+This function is off by default, because it lets the gateway download and run a new binary without you.
+To turn it on, do these steps on the gateway as the root user.
+
+1. Add this line to `/data/cloudflared/cloudflared.env`:
+
+   ```sh
+   AUTO_UPDATE=true
+   ```
+
+2. Run the installation again.
+
+   ```sh
+   /data/cloudflared/udm-cloudflared.sh install
+   ```
+
+A systemd timer then runs the `auto-update` command one time each week.
+The command downloads `cloudflared` only if a newer release exists.
+The command keeps the old binary if the new binary does not start.
+
+To turn the function off, remove the line and run the installation again.
 
 ## After a firmware update
 
@@ -83,6 +109,7 @@ If the connector is not in the Cloudflare dashboard after a firmware update, run
 ```
 
 The command copies the service file back and starts the service.
+If the weekly update is on, the command also puts the timer back.
 
 You can also run the restore each time the gateway starts.
 For this, you need [unifi-on-boot](https://github.com/unredacted/unifi-on-boot), a package that runs your scripts at each start.
@@ -112,7 +139,7 @@ chmod +x /data/on_boot.d/10-cloudflared.sh
 
   The first command must show an IP address. The second command must show an HTTP status code, not `000`.
 - The gateway can only connect to hosts that are on. If a host is off, its services stay off.
-- `cloudflared` does not update itself. Run the `update` command to get a new version.
+- `cloudflared` does not update itself. Run the `update` command to get a new version, or turn on the weekly update.
 
 ## Security
 
