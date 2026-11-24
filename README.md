@@ -69,10 +69,12 @@ For example, `./udm-cloudflared.sh status` shows the state of the service.
 | --- | --- |
 | `install` | Downloads `cloudflared`, creates the service, and starts it. |
 | `update` | Downloads the latest `cloudflared` and restarts the service. |
-| `check` | Shows the installed version and the latest version of `cloudflared`. |
+| `check` | Shows the installed version and the latest version of `cloudflared` and of the script. |
 | `auto-update` | Does an update only if a newer release exists. The weekly timer runs this command. |
+| `self-update` | Replaces the script with its newest release. |
 | `restore` | Puts the service file back after a firmware update. |
 | `status` | Shows the `cloudflared` version and the state of the service. |
+| `version` | Shows the version of the script. |
 | `uninstall` | Removes the service and keeps the files in `/data/cloudflared`. |
 | `uninstall --purge` | Removes the service and deletes `/data/cloudflared`. |
 
@@ -99,6 +101,34 @@ The command downloads `cloudflared` only if a newer release exists.
 The command keeps the old binary if the new binary does not start.
 
 To turn the function off, remove the line and run the installation again.
+
+## Script updates
+
+The script does not update itself automatically.
+The weekly timer updates only `cloudflared`, not the script.
+The `check` command tells you when a newer release of the script exists.
+
+To get the newest release, run these commands on the gateway as the root user:
+
+```sh
+/data/cloudflared/udm-cloudflared.sh self-update
+/data/cloudflared/udm-cloudflared.sh install
+```
+
+The first command downloads the script from the release tag, not from the `main` branch.
+It keeps the old script if the new script is not valid.
+The second command applies the new service files.
+
+The download uses HTTPS from GitHub.
+The script does not make sure that a signature or a checksum is correct.
+Read the release notes before you run `self-update`.
+
+### Releases
+
+This part is for the maintainer.
+To publish a release, set `SCRIPT_VERSION` in the script to the new version, for example `0.2.0`.
+Then publish a GitHub release with the tag `v0.2.0`.
+The tag must match the version, or `self-update` rejects the download.
 
 ## After a firmware update
 
