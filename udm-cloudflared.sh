@@ -197,10 +197,10 @@ cmd_check() {
   latest="$(latest_version)" || die "The script cannot read the latest version. Make sure that the gateway can connect to github.com."
   echo "Installed: ${installed}"
   echo "Latest:    ${latest}"
-  if [ "${installed}" = "${latest}" ]; then
-    info "cloudflared is up to date."
-  else
+  if version_newer "${latest}" "${installed}"; then
     info "A newer version exists. Run: $0 update"
+  else
+    info "cloudflared is up to date."
   fi
   check_script
 }
@@ -225,7 +225,7 @@ cmd_self_update() {
   local tag tmp
   need_root
   [ -d "${DIR}" ] || die "${DIR} does not exist. Run: $0 install"
-  tag="$(latest_script_tag)" || die "The script cannot find a release. Make sure that the gateway can connect to github.com."
+  tag="$(latest_script_tag)" || die "No release of the script exists, or the gateway cannot connect to github.com."
   if ! version_newer "${tag#v}" "${SCRIPT_VERSION}"; then
     info "The script ${SCRIPT_VERSION} is up to date."
     return 0
@@ -252,7 +252,7 @@ cmd_auto_update() {
   [ -x "${BIN}" ] || die "${BIN} does not exist. Run: $0 install"
   installed="$(installed_version)"
   latest="$(latest_version)" || die "The script cannot read the latest version. Make sure that the gateway can connect to github.com."
-  if [ "${installed}" = "${latest}" ]; then
+  if ! version_newer "${latest}" "${installed}"; then
     info "cloudflared ${installed} is up to date."
     return 0
   fi
