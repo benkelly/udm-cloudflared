@@ -150,7 +150,7 @@ sync_update_timer() {
       cp -f "${DIR}/${unit}" "${SYSTEMD_DIR}/${unit}"
     done
     systemctl daemon-reload
-    systemctl enable --now cloudflared-update.timer >/dev/null 2>&1
+    systemctl enable --now cloudflared-update.timer >/dev/null 2>&1 || die "The script cannot start the update timer. Run: systemctl status cloudflared-update.timer"
   else
     systemctl disable --now cloudflared-update.timer >/dev/null 2>&1 || true
     for unit in ${UPDATE_UNITS}; do
